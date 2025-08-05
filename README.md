@@ -62,12 +62,12 @@ chirpnet-backend/
 ├── models/         # Mongoose schemas
 ├── routes/         # Express routes
 ├── utils/          # Helper functions
-├── public/         # Temp media storage
+├── public/temp/    # Temp media storage
 ├── .env.example    # Sample environment vars
 ├── server.js       # Entry point
 └── README.md       # Project documentation
 
----
+```
 
 ## 📄 License
 MIT License.
