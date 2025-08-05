@@ -68,6 +68,7 @@ chirpnet-backend/
 └── README.md       # Project documentation
 
 ```
+---
 
 ## 📄 License
 MIT License.
