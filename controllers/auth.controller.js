@@ -18,7 +18,7 @@ const refreshTokenExpiry = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 // Register user
 export const registerUser = asyncHandler(async (req, res) => {
-  const { fullName, username, email, password } = req.body;
+  const { fullName, username, bio, email, password } = req.body;
 
   if ([fullName, username, email, password].some((field) => !field?.trim())) {
     throw new ApiError(400, "All fields are required");
@@ -57,6 +57,7 @@ export const registerUser = asyncHandler(async (req, res) => {
     fullName,
     username,
     email,
+    bio: bio?.trim() || " ",
     avatar,
     password: hashedPassword,
   });

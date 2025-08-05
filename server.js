@@ -5,6 +5,7 @@ import connectDB from "./config/db.js";
 import errorHandler from "./middlewares/error.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
 import chirpRoutes from "./routes/chirp.routes.js";
+import userRoutes from "./routes/user.routes.js";
 
 // Load env configuration
 dotenv.config();
@@ -21,6 +22,7 @@ app.use(cookieParser());
 
 // Routes
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/chirps", chirpRoutes);
 
 // Error Handler
