@@ -35,6 +35,23 @@ const userSchema = new mongoose.Schema(
       avatarUrl: String,
       publicId: String,
     },
+    bio: {
+      type: String,
+      trim: true,
+      maxLength: 160,
+    },
+    followers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    following: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     role: {
       type: String,
       enum: ["user", "admin"],
