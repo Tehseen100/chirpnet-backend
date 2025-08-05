@@ -1,4 +1,4 @@
-# 🐦 ChirpNet 
+# 🐦 ChirpNet
 
 > Scalable Twitter-like backend API built with Node.js, Express, and MongoDB. Supports JWT authentication, user roles, media uploads, likes, comments, rechirps, and more.
 
@@ -47,7 +47,7 @@ ChirpNet is a scalable and secure backend for a social media platform similar to
 - **Database:** MongoDB + Mongoose
 - **Authentication:** JWT (Access + Refresh Tokens)
 - **File Storage:** Cloudinary
-- **Security:**  CORS, secure cookies
+- **Security:** CORS, secure cookies
 - **Dev Tools:** Postman, Nodemon, ESLint, Git
 
 ---
@@ -68,11 +68,13 @@ chirpnet-backend/
 └── README.md       # Project documentation
 
 ```
+
 ---
 
 ## 📄 License
+
 MIT License.
- 
+
 ---
 
 ## 👨‍💻 Author
@@ -80,3 +82,5 @@ MIT License.
 **Tehseen Javed**  
 Backend Developer | Computer Systems Engineering Student at DUET  
 [GitHub Profile](https://github.com/Tehseen100)
+
+---
