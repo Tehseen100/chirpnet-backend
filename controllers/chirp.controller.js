@@ -255,6 +255,37 @@ export const getAllChirps = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /chirps/me
+export const getMyChirps = asyncHandler(async (req, res) => {
+  const limit = parseInt(req.query.limit) || 10;
+  const page = parseInt(req.query.page) || 1;
+  const skip = (page - 1) * limit;
+
+  const myChirps = await Chirp.find({ author: req.user._id })
+    .populate("author", "fullName username avatar")
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  const totalChirps = await Chirp.countDocuments({ author: req.user._id });
+  const totalPages = Math.ceil(totalChirps / limit);
+
+  res.status(200).json({
+    success: true,
+    message: "User chirps fetched successfully",
+    data: {
+      chirps: myChirps,
+      pagination: {
+        totalChirps,
+        limit,
+        page,
+        totalPages,
+      },
+    },
+  });
+});
+
 // DELETE /chirps:chirpId
 export const deleteChirp = asyncHandler(async (req, res) => {
   const { chirpId } = req.params;

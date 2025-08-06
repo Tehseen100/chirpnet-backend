@@ -258,3 +258,35 @@ export const changeCurrentPassword = asyncHandler(async (req, res) => {
     message: "Password changed successfully",
   });
 });
+
+// DELETE /users/me
+export const deleteAccount = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+  if (!user) throw new ApiError(404, "User not found");
+
+  // Delete avatar from Cloudinary
+  try {
+    await cloudinary.uploader.destroy(user.avatar.publicId);
+  } catch (error) {
+    console.error("Cloudinary deletion failed:", error.message);
+  }
+
+  // Hard Delete
+  await User.deleteOne(user._id);
+
+  // Cookie options
+  const cookieOptions = {
+    httpOnly: true,
+    secure: true,
+    sameSite: "strict",
+  };
+
+  res
+    .clearCookie("accessToken", cookieOptions)
+    .clearCookie("refreshToken", cookieOptions)
+    .status(200)
+    .json({
+      success: true,
+      message: "Your account has been deleted successfully",
+    });
+});

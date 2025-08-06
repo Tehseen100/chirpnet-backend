@@ -9,6 +9,7 @@ import {
   getUserChirps,
   updateProfile,
   changeCurrentPassword,
+  deleteAccount,
 } from "../controllers/user.controller.js";
 import { uploadAvatar } from "../middlewares/multer.middleware.js";
 
@@ -25,4 +26,5 @@ router.get("/:username/following", getFollowing);
 router.get("/:username/chirps", getUserChirps);
 router.patch("/me", uploadAvatar.single("avatar"), updateProfile);
 router.put("/me/change-password", changeCurrentPassword);
+router.delete("/me", deleteAccount);
 export default router;
