@@ -244,7 +244,6 @@ export const getAllChirps = asyncHandler(async (req, res) => {
           },
         },
         likesCount: 1,
-        hashtags: 1,
       },
     },
   ]);

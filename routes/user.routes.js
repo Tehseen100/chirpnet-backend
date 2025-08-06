@@ -6,7 +6,11 @@ import {
   getFollowing,
   getPublicProfile,
   toggleFollowUser,
+  getUserChirps,
+  updateProfile,
+  changeCurrentPassword,
 } from "../controllers/user.controller.js";
+import { uploadAvatar } from "../middlewares/multer.middleware.js";
 
 const router = express.Router();
 
@@ -18,5 +22,7 @@ router.get("/:username", getPublicProfile);
 router.patch("/:username/follow", toggleFollowUser);
 router.get("/:username/followers", getFollowers);
 router.get("/:username/following", getFollowing);
-
+router.get("/:username/chirps", getUserChirps);
+router.patch("/me", uploadAvatar.single("avatar"), updateProfile);
+router.put("/me/change-password", changeCurrentPassword);
 export default router;
