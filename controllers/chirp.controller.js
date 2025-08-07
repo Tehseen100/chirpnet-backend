@@ -131,16 +131,11 @@ export const getAllChirps = asyncHandler(async (req, res) => {
   const skip = (page - 1) * limit;
 
   const chirps = await Chirp.aggregate([
-    // Sort by most recent
-    {
-      $sort: { createdAt: -1 },
-    },
-
+    { $sort: { createdAt: -1 } },
     { $skip: skip },
-
     { $limit: limit },
 
-    // Lookup author of the chirp
+    // Lookup author
     {
       $lookup: {
         from: "users",
@@ -151,73 +146,63 @@ export const getAllChirps = asyncHandler(async (req, res) => {
     },
     { $unwind: "$author" },
 
-    // Lookup latest 3 comments with their authors
-    {
-      $lookup: {
-        from: "comments",
-        let: { chirpId: "$_id" },
-        pipeline: [
-          {
-            $match: { $expr: { $eq: ["$chirp", "$$chirpId"] } },
-          },
-          { $sort: { createdAt: -1 } },
-          { $limit: 3 },
-          {
-            $lookup: {
-              from: "users",
-              localField: "author",
-              foreignField: "_id",
-              as: "author",
-            },
-          },
-          { $unwind: "$author" },
-        ],
-        as: "latestComments",
-      },
-    },
-
-    // Lookup original chirp if this is a rechirp
+    // Lookup original chirp for rechirps
     {
       $lookup: {
         from: "chirps",
         localField: "originalChirp",
         foreignField: "_id",
-        as: "rechirp",
+        as: "originalChirp",
       },
     },
     {
       $unwind: {
-        path: "$rechirp",
+        path: "$originalChirp",
         preserveNullAndEmptyArrays: true,
       },
     },
 
-    // Lookup author of the rechirped chirp
+    // Lookup author of original chirp
     {
       $lookup: {
         from: "users",
-        localField: "rechirp.author",
+        localField: "originalChirp.author",
         foreignField: "_id",
-        as: "rechirpAuthor",
+        as: "originalChirpAuthor",
       },
     },
     {
       $unwind: {
-        path: "$rechirpAuthor",
+        path: "$originalChirpAuthor",
         preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    // Lookup comment count
+    {
+      $lookup: {
+        from: "comments",
+        localField: "_id",
+        foreignField: "chirp",
+        as: "comments",
+      },
+    },
+    {
+      $addFields: {
+        commentsCount: { $size: { $ifNull: ["$comments", []] } },
+      },
+    },
+    {
+      $project: {
+        comments: 0,
       },
     },
 
     // Add likes count
     {
       $addFields: {
-        likesCount: {
-          $cond: {
-            if: { $isArray: "$likes" },
-            then: { $size: "$likes" },
-            else: 0,
-          },
-        },
+        likesCount: { $size: { $ifNull: ["$likes", []] } },
+        likedByMe: { $in: [req.user._id, "$likes"] },
       },
     },
 
@@ -227,31 +212,40 @@ export const getAllChirps = asyncHandler(async (req, res) => {
         content: 1,
         media: 1,
         createdAt: 1,
+        likedByMe: 1,
+        likesCount: 1,
+        commentsCount: 1,
         author: { fullName: 1, username: 1, avatar: 1 },
-        latestComments: {
-          content: 1,
-          createdAt: 1,
-          author: { fullName: 1, username: 1, avatar: 1 },
-        },
-        rechirp: {
-          content: 1,
-          media: 1,
-          createdAt: 1,
+
+        originalChirp: {
+          content: "$originalChirp.content",
+          media: "$originalChirp.media",
+          createdAt: "$originalChirp.createdAt",
           author: {
-            fullName: "$rechirpAuthor.fullName",
-            username: "$rechirpAuthor.username",
-            avatar: "$rechirpAuthor.avatar",
+            fullName: "$originalChirpAuthor.fullName",
+            username: "$originalChirpAuthor.username",
+            avatar: "$originalChirpAuthor.avatar",
           },
         },
-        likesCount: 1,
       },
     },
   ]);
 
+  const totalChirps = await Chirp.countDocuments();
+  const totalPages = Math.ceil(totalChirps / limit);
+
   res.status(200).json({
     success: true,
     message: "All chirps fetched successfully",
-    data: chirps,
+    data: {
+      chirps,
+      pagination: {
+        totalChirps,
+        totalPages,
+        page,
+        limit,
+      },
+    },
   });
 });
 
@@ -261,26 +255,121 @@ export const getMyChirps = asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const skip = (page - 1) * limit;
 
-  const myChirps = await Chirp.find({ author: req.user._id })
-    .populate("author", "fullName username avatar")
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .lean();
+  const chirps = await Chirp.aggregate([
+    { $match: { author: req.user._id } },
+    { $sort: { createdAt: -1 } },
+    { $skip: skip },
+    { $limit: limit },
+
+    // Lookup author
+    {
+      $lookup: {
+        from: "users",
+        localField: "author",
+        foreignField: "_id",
+        as: "author",
+      },
+    },
+    { $unwind: "$author" },
+
+    // Lookup original chirp for rechirps
+    {
+      $lookup: {
+        from: "chirps",
+        localField: "originalChirp",
+        foreignField: "_id",
+        as: "originalChirp",
+      },
+    },
+    {
+      $unwind: {
+        path: "$originalChirp",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    // Lookup author of original chirp
+    {
+      $lookup: {
+        from: "users",
+        localField: "originalChirp.author",
+        foreignField: "_id",
+        as: "originalChirpAuthor",
+      },
+    },
+    {
+      $unwind: {
+        path: "$originalChirpAuthor",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    // Lookup comment count
+    {
+      $lookup: {
+        from: "comments",
+        localField: "_id",
+        foreignField: "chirp",
+        as: "comments",
+      },
+    },
+    {
+      $addFields: {
+        commentsCount: { $size: { $ifNull: ["$comments", []] } },
+      },
+    },
+    {
+      $project: {
+        comments: 0,
+      },
+    },
+
+    // Add likes count
+    {
+      $addFields: {
+        likesCount: { $size: { $ifNull: ["$likes", []] } },
+        likedByMe: { $in: [req.user._id, "$likes"] },
+      },
+    },
+
+    // Final projection
+    {
+      $project: {
+        content: 1,
+        media: 1,
+        createdAt: 1,
+        likedByMe: 1,
+        likesCount: 1,
+        commentsCount: 1,
+        author: { fullName: 1, username: 1, avatar: 1 },
+
+        originalChirp: {
+          content: "$originalChirp.content",
+          media: "$originalChirp.media",
+          createdAt: "$originalChirp.createdAt",
+          author: {
+            fullName: "$originalChirpAuthor.fullName",
+            username: "$originalChirpAuthor.username",
+            avatar: "$originalChirpAuthor.avatar",
+          },
+        },
+      },
+    },
+  ]);
 
   const totalChirps = await Chirp.countDocuments({ author: req.user._id });
   const totalPages = Math.ceil(totalChirps / limit);
 
   res.status(200).json({
     success: true,
-    message: "User chirps fetched successfully",
+    message: "All chirps fetched successfully",
     data: {
-      chirps: myChirps,
+      chirps,
       pagination: {
         totalChirps,
-        limit,
-        page,
         totalPages,
+        page,
+        limit,
       },
     },
   });
@@ -289,7 +378,7 @@ export const getMyChirps = asyncHandler(async (req, res) => {
 // DELETE /chirps:chirpId
 export const deleteChirp = asyncHandler(async (req, res) => {
   const { chirpId } = req.params;
-  const chirp = await Chirp.findOne({ _id: chirpId });
+  const chirp = await Chirp.findById(chirpId);
 
   if (!chirp) {
     throw new ApiError(404, "Chirp not found");
@@ -301,7 +390,7 @@ export const deleteChirp = asyncHandler(async (req, res) => {
 
   // If it was Rechirp then remove it
   if (chirp.isRechirp) {
-    await chirp.deleteOne({ _id: chirpId });
+    await chirp.deleteOne();
     return res.status(200).json({
       success: true,
       message: "Rechirp deleted successfully",
@@ -323,7 +412,7 @@ export const deleteChirp = asyncHandler(async (req, res) => {
   }
 
   // Delete the chirp from DB
-  await Chirp.deleteOne({ _id: chirpId });
+  await chirp.deleteOne();
 
   // Delete all comments associated with the chirp
   await Comment.deleteMany({ chirp: chirpId });

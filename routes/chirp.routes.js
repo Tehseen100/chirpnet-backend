@@ -17,14 +17,12 @@ import {
 
 const router = express.Router();
 
-// Public routes
-router.get("/", getAllChirps);
-
 // Protect all below routes
 router.use(verifyJWT);
 router.use(isAuthenticated);
 
 router.post("/", uploadMedia.array("media", 4), createChirp);
+router.get("/", getAllChirps);
 router.get("/me", getMyChirps);
 router.patch("/:chirpId/like", toggleLikeOnChirp);
 router.post("/:chirpId/comments", addCommentToChirp);
