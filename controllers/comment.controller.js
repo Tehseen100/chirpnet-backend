@@ -30,6 +30,44 @@ export const addCommentToChirp = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /chirps/:chirpId/comments
+export const getCommentsOnChirp = asyncHandler(async (req, res) => {
+  const { chirpId } = req.params;
+
+  const limit = parseInt(req.query.limit) || 10;
+  const page = parseInt(req.query.page) || 1;
+  const skip = (page - 1) * limit;
+
+  const chirp = await Chirp.findById(chirpId);
+  if (!chirp) {
+    throw new ApiError(404, "Chirp not found");
+  }
+
+  const comments = await Comment.find({ chirp: chirpId })
+    .populate("author", "fullName username avatar")
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  const totalComments = await Comment.countDocuments({ chirp: chirpId });
+  const totalPages = Math.ceil(totalComments / limit);
+
+  res.status(200).json({
+    success: true,
+    message: "Chirp comment fetched successfully",
+    data: {
+      comments,
+      pagination: {
+        totalComments,
+        totalPages,
+        page,
+        limit,
+      },
+    },
+  });
+});
+
 // DELETE /comments/:commentId
 export const deleteComment = asyncHandler(async (req, res) => {
   const { commentId } = req.params;

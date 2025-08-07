@@ -13,6 +13,7 @@ import { uploadMedia } from "../middlewares/multer.middleware.js";
 import {
   addCommentToChirp,
   deleteComment,
+  getCommentsOnChirp,
 } from "../controllers/comment.controller.js";
 
 const router = express.Router();
@@ -28,6 +29,7 @@ router.patch("/:chirpId/like", toggleLikeOnChirp);
 router.post("/:chirpId/comments", addCommentToChirp);
 router.delete("/comments/:commentId", deleteComment);
 router.post("/:chirpId/rechirp", rechirpChirp);
+router.get("/:chirpId/comments", getCommentsOnChirp);
 router.delete("/:chirpId", deleteChirp);
 
 export default router;
