@@ -1,8 +1,4 @@
 import mongoose from "mongoose";
-import dotenv from "dotenv";
-
-// Load env configuration
-dotenv.config();
 
 // Connect to MongoDB Atlas
 const connectDB = async () => {

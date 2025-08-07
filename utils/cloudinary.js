@@ -1,9 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
-import dotenv from "dotenv";
 import fs from "fs";
-
-// Load env configuration
-dotenv.config();
 
 // Cloudinary Configuration
 cloudinary.config({
