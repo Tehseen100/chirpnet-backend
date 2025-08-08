@@ -9,6 +9,10 @@ import { v2 as cloudinary } from "cloudinary";
 export const createChirp = asyncHandler(async (req, res) => {
   const { content } = req.body;
 
+  if (!content?.trim()) {
+    throw new ApiError(400, "Chirp content is required");
+  }
+
   const chirpObj = {
     content,
     author: req.user._id,
@@ -84,7 +88,7 @@ export const toggleLikeOnChirp = asyncHandler(async (req, res) => {
 export const rechirpChirp = asyncHandler(async (req, res) => {
   const { chirpId } = req.params;
   const userId = req.user._id;
-  const { content } = req.body;
+  const { content } = req.body || {};
 
   const targetChirp = await Chirp.findById(chirpId);
   if (!targetChirp) {
@@ -111,16 +115,21 @@ export const rechirpChirp = asyncHandler(async (req, res) => {
   }
 
   // Not yet rechirped → create new rechirp
-  await Chirp.create({
-    content: content || "",
+  const rechirpData = {
     isRechirp: true,
     author: userId,
     originalChirp: originalChirpId,
-  });
+  };
+  if (content?.trim()) {
+    rechirpData.content = content.trim();
+  }
+
+  const newRechirp = await Chirp.create(rechirpData);
 
   res.status(201).json({
     success: true,
     message: "Rechirped successfully",
+    rechirp: newRechirp,
   });
 });
 
