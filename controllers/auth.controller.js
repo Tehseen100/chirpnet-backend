@@ -9,7 +9,7 @@ import uploadOnCloudinary from "../utils/cloudinary.js";
 // Cookie options
 const cookieOptions = {
   httpOnly: true,
-  secure: true,
+  secure: process.env.NODE_ENV === "production",
   sameSite: "strict",
 };
 
