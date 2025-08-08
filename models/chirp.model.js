@@ -6,16 +6,12 @@ const chirpSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: [280, "Chirp cannot exceed 280 characters"],
-      validate: {
-        validator: function (value) {
-          // If it's not a rechirp, content is required
-          if (!this.isRechirp && (!value || value.trim() === "")) {
-            return false;
-          }
-          return true;
+      required: [
+        function () {
+          return !this.isRechirp; // Only required if not a rechirp
         },
-        message: "Chirp content is required",
-      },
+        "Chirp content is required",
+      ],
     },
     media: [
       {
