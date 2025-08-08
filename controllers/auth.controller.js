@@ -10,7 +10,7 @@ import uploadOnCloudinary from "../utils/cloudinary.js";
 const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "strict",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
 };
 
 const accessTokenExpiry = 15 * 60 * 1000; // 15 minutes
