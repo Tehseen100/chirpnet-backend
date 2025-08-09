@@ -424,7 +424,11 @@ export const deleteChirp = asyncHandler(async (req, res) => {
   await chirp.deleteOne();
 
   // Delete all comments associated with the chirp
-  await Comment.deleteMany({ chirp: chirpId });
+  try {
+    await Comment.deleteMany({ chirp: chirpId });
+  } catch (error) {
+    console.error("Failed to delete comments: ", error.message);
+  }
 
   res.status(200).json({
     success: true,
