@@ -1,5 +1,6 @@
 import { Chirp } from "../models/chirp.model.js";
 import { Comment } from "../models/comment.model.js";
+import { Like } from "../models/like.model.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
@@ -51,35 +52,33 @@ export const toggleLikeOnChirp = asyncHandler(async (req, res) => {
   const { chirpId } = req.params;
   const userId = req.user._id;
 
-  const chirp = await Chirp.findById(chirpId);
+  const chirp = await Chirp.findById(chirpId).select("_id");
   if (!chirp) {
     throw new ApiError(404, "Chirp not found");
   }
 
-  const alreadyLiked = chirp.likes.includes(userId);
+  const alreadyLiked = await Like.exists({ chirp: chirp._id, author: userId });
 
   if (alreadyLiked) {
     // Unlike the chirp
-    chirp.likes.pull(userId);
+    await Like.findOneAndDelete({ chirp: chirp._id, author: userId });
   } else {
     // Like the chirp
-    chirp.likes.push(userId);
+    await Like.create({
+      chirp: chirp._id,
+      author: userId,
+    });
   }
 
-  await chirp.save();
-
-  const updatedChirp = await Chirp.findById(chirpId)
-    .populate("likes", "fullName username avatar")
-    .lean();
+  const totalLikes = await Like.countDocuments({ chirp: chirp._id });
 
   res.status(200).json({
     success: true,
     message: alreadyLiked ? "Chirp unliked " : "Chirp liked ",
     data: {
-      chirpId: updatedChirp._id,
-      totalLikes: updatedChirp.likes.length,
+      chirpId: chirp._id,
+      totalLikes,
       likedByMe: !alreadyLiked,
-      likedUsers: updatedChirp.likes,
     },
   });
 });
@@ -151,6 +150,7 @@ export const getAllChirps = asyncHandler(async (req, res) => {
         localField: "author",
         foreignField: "_id",
         as: "author",
+        pipeline: [{ $project: { fullName: 1, username: 1, avatar: 1 } }],
       },
     },
     { $unwind: "$author" },
@@ -178,6 +178,7 @@ export const getAllChirps = asyncHandler(async (req, res) => {
         localField: "originalChirp.author",
         foreignField: "_id",
         as: "originalChirpAuthor",
+        pipeline: [{ $project: { fullName: 1, username: 1, avatar: 1 } }],
       },
     },
     {
@@ -201,17 +202,29 @@ export const getAllChirps = asyncHandler(async (req, res) => {
         commentsCount: { $size: { $ifNull: ["$comments", []] } },
       },
     },
+
+    // Lookup likes count + likedByMe
     {
-      $project: {
-        comments: 0,
+      $lookup: {
+        from: "likes",
+        let: { chirpId: "$_id", currentUserId: req.user._id },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$chirp", "$$chirpId"] } } },
+          {
+            $group: {
+              _id: null,
+              likesCount: { $sum: 1 },
+              likedByMe: { $max: { $eq: ["$author", "$$currentUserId"] } },
+            },
+          },
+        ],
+        as: "likeStats",
       },
     },
-
-    // Add likes count
     {
       $addFields: {
-        likesCount: { $size: { $ifNull: ["$likes", []] } },
-        likedByMe: { $in: [req.user._id, "$likes"] },
+        likesCount: { $ifNull: [{ $first: "$likeStats.likesCount" }, 0] },
+        likedByMe: { $ifNull: [{ $first: "$likeStats.likedByMe" }, false] },
       },
     },
 
@@ -221,20 +234,15 @@ export const getAllChirps = asyncHandler(async (req, res) => {
         content: 1,
         media: 1,
         createdAt: 1,
-        likedByMe: 1,
-        likesCount: 1,
         commentsCount: 1,
-        author: { fullName: 1, username: 1, avatar: 1 },
-
+        likesCount: 1,
+        likedByMe: 1,
+        author: 1,
         originalChirp: {
           content: "$originalChirp.content",
           media: "$originalChirp.media",
           createdAt: "$originalChirp.createdAt",
-          author: {
-            fullName: "$originalChirpAuthor.fullName",
-            username: "$originalChirpAuthor.username",
-            avatar: "$originalChirpAuthor.avatar",
-          },
+          author: "$originalChirpAuthor",
         },
       },
     },
@@ -277,6 +285,7 @@ export const getMyChirps = asyncHandler(async (req, res) => {
         localField: "author",
         foreignField: "_id",
         as: "author",
+        pipeline: [{ $project: { fullName: 1, username: 1, avatar: 1 } }],
       },
     },
     { $unwind: "$author" },
@@ -304,6 +313,7 @@ export const getMyChirps = asyncHandler(async (req, res) => {
         localField: "originalChirp.author",
         foreignField: "_id",
         as: "originalChirpAuthor",
+        pipeline: [{ $project: { fullName: 1, username: 1, avatar: 1 } }],
       },
     },
     {
@@ -327,17 +337,29 @@ export const getMyChirps = asyncHandler(async (req, res) => {
         commentsCount: { $size: { $ifNull: ["$comments", []] } },
       },
     },
+
+    // Lookup likes count + likedByMe
     {
-      $project: {
-        comments: 0,
+      $lookup: {
+        from: "likes",
+        let: { chirpId: "$_id", currentUserId: req.user._id },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$chirp", "$$chirpId"] } } },
+          {
+            $group: {
+              _id: null,
+              likesCount: { $sum: 1 },
+              likedByMe: { $max: { $eq: ["$author", "$$currentUserId"] } },
+            },
+          },
+        ],
+        as: "likeStats",
       },
     },
-
-    // Add likes count
     {
       $addFields: {
-        likesCount: { $size: { $ifNull: ["$likes", []] } },
-        likedByMe: { $in: [req.user._id, "$likes"] },
+        likesCount: { $ifNull: [{ $first: "$likeStats.likesCount" }, 0] },
+        likedByMe: { $ifNull: [{ $first: "$likeStats.likedByMe" }, false] },
       },
     },
 
@@ -347,20 +369,15 @@ export const getMyChirps = asyncHandler(async (req, res) => {
         content: 1,
         media: 1,
         createdAt: 1,
-        likedByMe: 1,
-        likesCount: 1,
         commentsCount: 1,
-        author: { fullName: 1, username: 1, avatar: 1 },
-
+        likesCount: 1,
+        likedByMe: 1,
+        author: 1,
         originalChirp: {
           content: "$originalChirp.content",
           media: "$originalChirp.media",
           createdAt: "$originalChirp.createdAt",
-          author: {
-            fullName: "$originalChirpAuthor.fullName",
-            username: "$originalChirpAuthor.username",
-            avatar: "$originalChirpAuthor.avatar",
-          },
+          author: "$originalChirpAuthor",
         },
       },
     },
