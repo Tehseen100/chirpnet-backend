@@ -27,9 +27,9 @@ router.get("/", getAllChirps);
 router.get("/me", getMyChirps);
 router.patch("/:chirpId/like", toggleLikeOnChirp);
 router.post("/:chirpId/comments", addCommentToChirp);
+router.get("/:chirpId/comments", getCommentsOnChirp);
 router.delete("/comments/:commentId", deleteComment);
 router.post("/:chirpId/rechirp", rechirpChirp);
-router.get("/:chirpId/comments", getCommentsOnChirp);
 router.delete("/:chirpId", deleteChirp);
 
 export default router;
