@@ -34,7 +34,7 @@ export const registerUser = asyncHandler(async (req, res) => {
   });
 
   if (existingUser) {
-    throw new ApiError(409, "User already exists");
+    throw new ApiError(409, "Email or username already taken");
   }
 
   const cloudinaryResponse = await uploadOnCloudinary(req.file.path);
