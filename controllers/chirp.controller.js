@@ -1,4 +1,5 @@
 import { Chirp } from "../models/chirp.model.js";
+import { User } from "../models/user.model.js";
 import { Comment } from "../models/comment.model.js";
 import { Like } from "../models/like.model.js";
 import ApiError from "../utils/ApiError.js";
@@ -389,6 +390,153 @@ export const getMyChirps = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     message: "All chirps fetched successfully",
+    data: {
+      chirps,
+      pagination: {
+        totalChirps,
+        totalPages,
+        page,
+        limit,
+      },
+    },
+  });
+});
+
+// GET /chirps/:username
+export const getUserChirps = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+
+  const limit = parseInt(req.query.limit) || 10;
+  const page = parseInt(req.query.page) || 1;
+  const skip = (page - 1) * limit;
+
+  const user = await User.findOne({ username }).select("_id");
+  if (!user) throw new ApiError(404, "User not found");
+
+  const chirps = await Chirp.aggregate([
+    { $match: { author: user._id } },
+    { $sort: { createdAt: -1 } },
+    { $skip: skip },
+    { $limit: limit },
+
+    // Lookup author
+    {
+      $lookup: {
+        from: "users",
+        localField: "author",
+        foreignField: "_id",
+        as: "author",
+        pipeline: [{ $project: { fullName: 1, username: 1, avatar: 1 } }],
+      },
+    },
+    { $unwind: "$author" },
+
+    // Lookup original chirp for rechirps
+    {
+      $lookup: {
+        from: "chirps",
+        localField: "originalChirp",
+        foreignField: "_id",
+        as: "originalChirp",
+      },
+    },
+    {
+      $unwind: {
+        path: "$originalChirp",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    // Lookup author of original chirp
+    {
+      $lookup: {
+        from: "users",
+        localField: "originalChirp.author",
+        foreignField: "_id",
+        as: "originalChirpAuthor",
+        pipeline: [{ $project: { fullName: 1, username: 1, avatar: 1 } }],
+      },
+    },
+    {
+      $unwind: {
+        path: "$originalChirpAuthor",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    // Lookup comment count
+    {
+      $lookup: {
+        from: "comments",
+        localField: "_id",
+        foreignField: "chirp",
+        as: "comments",
+      },
+    },
+    {
+      $addFields: {
+        commentsCount: { $size: { $ifNull: ["$comments", []] } },
+      },
+    },
+
+    // Lookup likes count + likedByMe
+    {
+      $lookup: {
+        from: "likes",
+        let: { chirpId: "$_id", currentUserId: req.user._id },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ["$chirp", "$$chirpId"] },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              likesCount: { $sum: 1 },
+              likedByMe: {
+                $max: { $eq: ["$author", "$$currentUserId"] },
+              },
+            },
+          },
+        ],
+        as: "likeStats",
+      },
+    },
+
+    {
+      $addFields: {
+        likesCount: { $ifNull: [{ $first: "$likeStats.likesCount" }, 0] },
+        likedByMe: { $ifNull: [{ $first: "$likeStats.likedByMe" }, false] },
+      },
+    },
+
+    // Final projection
+    {
+      $project: {
+        content: 1,
+        media: 1,
+        createdAt: 1,
+        likedByMe: 1,
+        likesCount: 1,
+        commentsCount: 1,
+        author: 1,
+        originalChirp: {
+          content: "$originalChirp.content",
+          media: "$originalChirp.media",
+          createdAt: "$originalChirp.createdAt",
+          author: "$originalChirpAuthor",
+        },
+      },
+    },
+  ]);
+
+  const totalChirps = await Chirp.countDocuments({ author: user._id });
+  const totalPages = Math.ceil(totalChirps / limit);
+
+  res.status(200).json({
+    success: true,
+    message: "User chirps fetched successfully",
     data: {
       chirps,
       pagination: {

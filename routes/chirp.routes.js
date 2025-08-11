@@ -4,6 +4,7 @@ import {
   deleteChirp,
   getAllChirps,
   getMyChirps,
+  getUserChirps,
   rechirpChirp,
   toggleLikeOnChirp,
 } from "../controllers/chirp.controller.js";
@@ -12,8 +13,8 @@ import { isAuthenticated } from "../middlewares/isAuthenticated.middleware.js";
 import { uploadMedia } from "../middlewares/multer.middleware.js";
 import {
   addCommentToChirp,
-  deleteComment,
   getCommentsOnChirp,
+  deleteComment,
 } from "../controllers/comment.controller.js";
 
 const router = express.Router();
@@ -25,6 +26,7 @@ router.use(isAuthenticated);
 router.post("/", uploadMedia.array("media", 4), createChirp);
 router.get("/", getAllChirps);
 router.get("/me", getMyChirps);
+router.get("/:username", getUserChirps);
 router.patch("/:chirpId/like", toggleLikeOnChirp);
 router.post("/:chirpId/comments", addCommentToChirp);
 router.get("/:chirpId/comments", getCommentsOnChirp);
